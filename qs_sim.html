@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quick Sort Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #eef3f7; --surface: #ffffff; --ink: #1d3340; --muted: #5f7380; --line: #d6e0e8;
+  --pivot: #f4a261; --low: #8ecae6; --high: #e5989b; --todo: #dfe6ec; --done: #90be6d;
+  --bar-ink: #1d3340; --todo-ink: #1d3340;
+  --code-bg: #fde8ef; --code-accent: #e75480; --code-ink: #5a1a33; --code-hit: #f9c4d6;
+  --accent: #264653; --good: #4a8c2a; --bad: #c0392b; --star: #f2b705;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #132029; --surface: #1b2b36; --ink: #e4edf2; --muted: #98acb9; --line: #2d4150;
+    --todo: #34485a; --todo-ink: #e4edf2; --accent: #8ecae6; --good: #8fd16a; --bad: #ff7b6b;
+    --code-bg: #36202b; --code-ink: #ffd6e4; --code-hit: #6b2a44;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #132029; --surface: #1b2b36; --ink: #e4edf2; --muted: #98acb9; --line: #2d4150;
+  --todo: #34485a; --todo-ink: #e4edf2; --accent: #8ecae6; --good: #8fd16a; --bad: #ff7b6b;
+  --code-bg: #36202b; --code-ink: #ffd6e4; --code-hit: #6b2a44;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 40px; }
+
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+h1 { font-size: clamp(28px, 4.5vw, 44px); font-weight: 800; line-height: 1.05; margin: 0; letter-spacing: -0.02em; }
+h1 span { display: block; font-size: 0.42em; font-weight: 400; color: var(--muted); letter-spacing: 0; margin-top: 6px; }
+.head-right { display: flex; gap: 10px; align-items: center; }
+.tabs { display: flex; background: var(--surface); border: 2px solid var(--line); border-radius: 12px; padding: 3px; }
+.tabs button { border: none; border-radius: 9px; padding: 8px 18px; background: transparent; }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+
+.input-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+input[type=text] { font-family: "JetBrains Mono", Consolas, monospace; font-size: 14px; padding: 9px 12px; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); width: 230px; }
+button { font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; padding: 9px 14px; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--code-accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+button.big { font-size: 17px; padding: 12px 26px; border-radius: 12px; }
+.error { color: var(--bad); font-size: 14px; margin: 0; }
+
+.hud { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.hud > div { background: var(--surface); border: 2px solid var(--line); border-radius: 14px; padding: 8px 16px; display: flex; flex-direction: column; min-width: 96px; }
+.hud small { font-size: 12px; color: var(--muted); }
+.hud b { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.hud .hearts b { letter-spacing: 2px; }
+.hud .streak.hot { border-color: var(--pivot); }
+.hud .speed { flex: 1; min-width: 160px; justify-content: center; }
+.bump { animation: bump 0.35s ease; }
+@keyframes bump { 40% { transform: scale(1.25); } }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 18px; position: relative; }
+.panel h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px; color: var(--muted); }
+.panel.shake { animation: shake 0.4s; border-color: var(--bad); }
+@keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
+.stage { position: relative; height: 340px; overflow: hidden; }
+.bar { position: absolute; bottom: 74px; left: 0; border-radius: 8px 8px 4px 4px; display: flex; justify-content: center; padding-top: 6px; font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 15px; color: var(--bar-ink); transition: transform 0.45s cubic-bezier(.5,0,.2,1), height 0.3s, background-color 0.3s, opacity 0.3s, box-shadow 0.2s; }
+.bar .idx { position: absolute; top: calc(100% + 6px); font-size: 12px; font-weight: 400; color: var(--muted); }
+.bar .tag { position: absolute; bottom: calc(100% + 4px); font-family: "Bricolage Grotesque", sans-serif; font-size: 12px; font-weight: 600; color: var(--pivot); white-space: nowrap; }
+.bar.pivot { background: var(--pivot); }
+.bar.low { background: var(--low); }
+.bar.high { background: var(--high); }
+.bar.todo { background: var(--todo); color: var(--todo-ink); }
+.bar.done { background: var(--done); }
+.bar.idle { background: var(--todo); color: var(--todo-ink); opacity: 0.35; }
+.bar.focus { box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--code-accent); }
+.bar.pickable { cursor: pointer; }
+.bar.pickable:hover { box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--pivot); }
+.range { position: absolute; bottom: 44px; height: 10px; border: 2px solid var(--accent); border-top: none; border-radius: 0 0 6px 6px; transition: left 0.35s, width 0.35s, opacity 0.3s; }
+.ptr { position: absolute; bottom: 4px; width: 60px; margin-left: -30px; text-align: center; font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 14px; color: var(--code-accent); transition: left 0.35s, opacity 0.2s; }
+.ptr::before { content: "▲"; display: block; font-size: 11px; line-height: 1; }
+.ptr.j { color: var(--accent); }
+.pop { position: absolute; z-index: 5; font-weight: 800; font-size: 26px; pointer-events: none; animation: pop 1s ease-out forwards; white-space: nowrap; }
+.pop.good { color: var(--good); }
+.pop.bad { color: var(--bad); }
+@keyframes pop { 0% { opacity: 0; transform: translateY(10px) scale(0.7); } 20% { opacity: 1; transform: translateY(0) scale(1.1); } 100% { opacity: 0; transform: translateY(-50px); } }
+
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.narration { margin-top: 16px; min-height: 130px; }
+.narration p { margin: 0; font-size: 17px; }
+.quiz { margin-top: 12px; padding: 14px; border-radius: 12px; border: 2px dashed var(--code-accent); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.quiz strong { width: 100%; font-weight: 600; font-size: 17px; }
+.quiz .hint { width: 100%; font-size: 13px; color: var(--muted); margin: -4px 0 4px; }
+.quiz .left { background: var(--low); border-color: var(--low); color: #1d3340; }
+.quiz .right { background: var(--high); border-color: var(--high); color: #1d3340; }
+.quiz .slot { min-width: 44px; font-family: "JetBrains Mono", monospace; }
+.feedback { margin-top: 12px; font-weight: 600; }
+.feedback.good { color: var(--good); }
+.feedback.bad { color: var(--bad); }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.controls .grow { flex: 1; min-width: 160px; }
+input[type=range] { width: 100%; accent-color: var(--code-accent); }
+.count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+label.toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+label.toggle input { width: 18px; height: 18px; accent-color: var(--code-accent); }
+
+.side { display: flex; flex-direction: column; gap: 20px; }
+pre.code { margin: 0; background: var(--code-bg); color: var(--code-ink); border-left: 4px solid var(--code-accent); border-radius: 6px; padding: 10px 0; font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px; line-height: 1.65; overflow-x: auto; }
+pre.code div { padding: 0 14px; white-space: pre; transition: background-color 0.2s; }
+pre.code div.hit { background: var(--code-hit); font-weight: 600; }
+.stack { display: flex; flex-direction: column-reverse; gap: 6px; font-family: "JetBrains Mono", monospace; font-size: 13px; }
+.frame { padding: 7px 10px; border: 2px solid var(--line); border-radius: 8px; color: var(--muted); }
+.frame.top { border-color: var(--accent); color: var(--ink); font-weight: 600; }
+.empty { color: var(--muted); font-size: 14px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat b { display: block; font-size: 26px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+.ref { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+
+.badges { display: grid; gap: 8px; }
+.badge { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+.badge .icon { font-size: 22px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--todo); filter: grayscale(1); opacity: 0.5; }
+.badge.won { color: var(--ink); }
+.badge.won .icon { filter: none; opacity: 1; background: var(--code-bg); }
+.badge b { display: block; font-size: 14px; }
+.badge span { font-size: 12px; }
+
+.overlay { position: fixed; inset: 0; background: rgba(15, 30, 40, 0.55); display: grid; place-items: center; padding: 20px; z-index: 20; }
+.overlay[hidden] { display: none; }
+.card { background: var(--surface); border-radius: 20px; padding: 28px; max-width: 460px; width: 100%; text-align: center; border: 3px solid var(--line); animation: rise 0.35s ease; }
+.card h3 { font-size: 30px; font-weight: 800; margin: 0 0 6px; line-height: 1.1; }
+.card p { margin: 0 0 12px; color: var(--muted); }
+.card ul { text-align: left; margin: 0 0 18px; padding-left: 20px; }
+.card li { margin-bottom: 6px; }
+.stars { font-size: 44px; letter-spacing: 6px; color: var(--star); margin: 6px 0 10px; }
+.stars .off { color: var(--line); }
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+@keyframes rise { from { opacity: 0; transform: translateY(20px) scale(0.96); } }
+
+.toasts { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; z-index: 30; }
+.toast { background: var(--accent); color: var(--surface); padding: 12px 16px; border-radius: 12px; font-weight: 600; font-size: 14px; animation: rise 0.3s ease; max-width: 300px; }
+canvas#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 25; }
+
+[data-mode="play"] .learn-only, [data-mode="learn"] .play-only { display: none !important; }
+
+.stage.finished .bar { animation: hop 0.6s ease both; }
+@keyframes hop { 40% { translate: 0 -18px; } 100% { translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .bar, .range, .ptr { transition: none; }
+  .stage.finished .bar, .panel.shake, .bump, .card, .toast { animation: none; }
+}
+</style>
+</head>
+<body data-mode="learn">
+<div class="wrap">
+  <header>
+    <h1>Quick Sort Quest<span>Watch every pivot do its job, then prove you can call the moves yourself.</span></h1>
+    <div class="head-right">
+      <div class="tabs" role="group" aria-label="Mode">
+        <button id="learnTab" aria-pressed="true">Learn</button>
+        <button id="playTab" aria-pressed="false">Play</button>
+      </div>
+      <button id="soundBtn" aria-label="Toggle sound">🔊</button>
+    </div>
+  </header>
+
+  <div class="input-row learn-only">
+    <input type="text" id="arrInput" value="7, 2, 9, 4, 3, 8, 5" aria-label="Array values, comma separated">
+    <button class="primary" id="loadBtn">Load array</button>
+    <button id="randBtn">Random</button>
+    <button id="worstBtn">Worst case</button>
+    <p class="error" id="err"></p>
+  </div>
+
+  <div class="hud play-only">
+    <div><small>Level</small><b id="hudLevel">1 / 4</b></div>
+    <div><small>Score</small><b id="hudScore">0</b></div>
+    <div class="streak" id="hudStreakBox"><small>Streak</small><b id="hudStreak">0</b></div>
+    <div class="hearts"><small>Hearts</small><b id="hudHearts">❤️❤️❤️</b></div>
+    <div><small>Best</small><b id="hudBest">0</b></div>
+    <div class="speed"><small>Animation speed</small><input type="range" id="gameSpeed" min="1" max="5" value="3" aria-label="Animation speed"></div>
+  </div>
+
+  <div class="layout">
+    <main>
+      <div class="panel" id="mainPanel">
+        <div class="stage" id="stage">
+          <div class="range" id="range"></div>
+          <div class="ptr" id="ptrI">i</div>
+          <div class="ptr j" id="ptrJ">j</div>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--pivot)"></i>Pivot</span>
+          <span><i style="background:var(--low)"></i>≤ pivot</span>
+          <span><i style="background:var(--high)"></i>&gt; pivot</span>
+          <span><i style="background:var(--todo)"></i>Not checked yet</span>
+          <span><i style="background:var(--done)"></i>In final position</span>
+        </div>
+        <div class="narration" aria-live="polite">
+          <p id="msg"></p>
+          <div id="quiz"></div>
+        </div>
+        <div class="learn-only">
+          <div class="controls">
+            <button id="resetBtn" aria-label="Back to start">⏮</button>
+            <button id="prevBtn">◀ Back</button>
+            <button class="primary" id="playBtn">▶ Play</button>
+            <button id="nextBtn">Next ▶</button>
+            <div class="grow"><input type="range" id="scrub" min="0" value="0" aria-label="Step"></div>
+            <span class="count" id="count"></span>
+          </div>
+          <div class="controls">
+            <label class="toggle"><input type="checkbox" id="predict"> Quiz me as it runs</label>
+            <span class="count" id="score"></span>
+            <div class="grow"></div>
+            <label class="count" for="speed">Speed</label>
+            <input type="range" id="speed" min="1" max="5" value="3" style="width:120px">
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="side">
+      <div class="panel">
+        <h2>Pseudocode</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>Call stack</h2>
+        <div class="stack" id="stack"></div>
+      </div>
+      <div class="panel">
+        <h2>Work done</h2>
+        <div class="stats">
+          <div class="stat"><b id="cmp">0</b><span>comparisons</span></div>
+          <div class="stat"><b id="swp">0</b><span>swaps</span></div>
+        </div>
+        <p class="ref" id="ref"></p>
+      </div>
+      <div class="panel play-only">
+        <h2>Badges</h2>
+        <div class="badges" id="badges"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="card" id="card" role="dialog" aria-modal="true"></div></div>
+<div class="toasts" id="toasts"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+const LINES = [
+  "QUICKSORT(A, low, high)",
+  "    if low < high",
+  "        p = PARTITION(A, low, high)",
+  "        QUICKSORT(A, low, p - 1)",
+  "        QUICKSORT(A, p + 1, high)",
+  "",
+  "PARTITION(A, low, high)",
+  "    pivot = A[high]",
+  "    i = low - 1",
+  "    for j = low to high - 1",
+  "        if A[j] <= pivot",
+  "            i = i + 1",
+  "            swap A[i] and A[j]",
+  "    swap A[i + 1] and A[high]",
+  "    return i + 1"
+];
+const SPEEDS = [1700, 1150, 800, 480, 260];
+const LEVELS = [
+  { name: "Warm-up", n: 5, blurb: "Five elements. Get a feel for the pivot." },
+  { name: "Picking up pace", n: 7, blurb: "Seven elements and deeper recursion." },
+  { name: "The big one", n: 9, blurb: "Nine elements. Keep that streak alive." },
+  { name: "Boss: the sorted array", n: 7, boss: true, blurb: "Already sorted, so every pivot is the worst possible choice. Survive Quick Sort's O(n²) case." }
+];
+const BADGES = [
+  { id: "first", icon: "🎯", name: "First call", desc: "Get your first answer right" },
+  { id: "streak5", icon: "🔥", name: "On fire", desc: "5 correct in a row" },
+  { id: "streak10", icon: "⚡", name: "Unstoppable", desc: "10 correct in a row" },
+  { id: "pivot", icon: "🔮", name: "Pivot whisperer", desc: "Predict where a pivot lands" },
+  { id: "pivot3", icon: "🧙", name: "Pivot prophet", desc: "Predict 3 pivot landings" },
+  { id: "flawless", icon: "💎", name: "Flawless", desc: "Clear a level without losing a heart" },
+  { id: "boss", icon: "👑", name: "Boss slayer", desc: "Beat the worst case" }
+];
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("qsq-" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("qsq-" + k, JSON.stringify(v)); } catch {} }
+};
+
+let steps = [], cur = 0, timer = null, answers = {}, values = [];
+let mode = "learn", sound = store.get("sound", true), gameTimer = null;
+const game = { level: 0, score: 0, levelStart: 0, streak: 0, hearts: 3, pivotHits: 0, best: store.get("best", 0), badges: new Set(store.get("badges", [])) };
+
+function build(input) {
+  const arr = input.slice(), ids = input.map((_, k) => k), n = arr.length;
+  const sorted = Array(n).fill(false), stack = [], out = [];
+  let cmp = 0, swp = 0, ctx = { lo: -1, hi: -1 };
+  const show = (lo, hi) => "[" + arr.slice(lo, hi + 1).join(", ") + "]";
+
+  const rec = (line, msg, extra = {}) => {
+    const { lo, hi, i, scan, part, placed } = ctx;
+    const roles = arr.map((_, k) => {
+      if (sorted[k]) return "done";
+      if (lo < 0 || k < lo || k > hi) return lo < 0 ? "todo" : "idle";
+      if (!part) return "todo";
+      if (placed != null) return k < placed ? "low" : "high";
+      if (k === hi) return "pivot";
+      if (i != null && k <= i) return "low";
+      return k < scan ? "high" : "todo";
+    });
+    out.push({ ids: ids.slice(), arr: arr.slice(), roles, stack: stack.map(f => f.slice()), cmp, swp, line, msg, ctx: { ...ctx }, focus: [], ...extra });
+  };
+  const swap = (a, b) => {
+    [arr[a], arr[b]] = [arr[b], arr[a]];
+    [ids[a], ids[b]] = [ids[b], ids[a]];
+    swp++;
+  };
+
+  function partition(lo, hi) {
+    const pivot = arr[hi];
+    ctx = { lo, hi, part: true, scan: lo, i: null, j: null };
+    rec(7, `The last element, ${pivot}, becomes the pivot. Every other element in this range gets compared with it.`, { focus: [hi] });
+    const pivotStep = out[out.length - 1];
+    let i = lo - 1;
+    ctx.i = i;
+    rec(8, `i starts at ${i}, just before the range. Everything from low up to i will be ≤ ${pivot}, and right now that zone is empty.`);
+    for (let j = lo; j < hi; j++) {
+      ctx.j = j; ctx.scan = j;
+      rec(10, `j points at A[${j}] = ${arr[j]}. Is it ≤ the pivot ${pivot}?`, { focus: [j], ask: { v: arr[j], pivot, left: arr[j] <= pivot } });
+      cmp++;
+      ctx.scan = j + 1;
+      if (arr[j] <= pivot) {
+        i++; ctx.i = i;
+        swap(i, j);
+        rec(12, i === j
+          ? `Yes, ${arr[i]} ≤ ${pivot}. i moves to ${i}, which is the same slot as j, so ${arr[i]} joins the ≤ zone without moving.`
+          : `Yes, ${arr[i]} ≤ ${pivot}. i moves to ${i}, then A[${i}] and A[${j}] swap, pulling ${arr[i]} into the ≤ zone.`, { focus: [i, j] });
+      } else {
+        rec(10, `No, ${arr[j]} > ${pivot}. It stays put in the > zone and j moves on.`, { focus: [j] });
+      }
+    }
+    if (hi - lo >= 2) pivotStep.askPivot = { pivot, lo, hi, ans: i + 1 };
+    ctx.j = null;
+    swap(i + 1, hi);
+    sorted[i + 1] = true;
+    ctx.placed = i + 1;
+    rec(13, `Scan finished. The pivot swaps into position ${i + 1}. Everything on its left is ≤ ${pivot} and everything on its right is bigger, so ${pivot} is locked in its final spot.`, { focus: [i + 1] });
+    return i + 1;
+  }
+
+  function quicksort(lo, hi, from) {
+    stack.push([lo, hi]);
+    ctx = { lo, hi };
+    const line = from === "left" ? 3 : from === "right" ? 4 : 1;
+    const who = from === "left" ? "Left call" : from === "right" ? "Right call" : "First call";
+    if (lo < hi) {
+      rec(line, `${who}: QUICKSORT(A, ${lo}, ${hi}) on ${show(lo, hi)}. It has more than one element, so it needs partitioning.`);
+      const p = partition(lo, hi);
+      ctx = { lo, hi, part: true, placed: p };
+      rec(2, `PARTITION returned p = ${p}. Now sort the left side A[${lo}..${p - 1}], then the right side A[${p + 1}..${hi}].`);
+      quicksort(lo, p - 1, "left");
+      quicksort(p + 1, hi, "right");
+    } else if (lo === hi) {
+      sorted[lo] = true;
+      rec(line, `${who}: QUICKSORT(A, ${lo}, ${hi}) has a single element, ${arr[lo]}. One element is already sorted, so it returns straight away.`, { focus: [lo] });
+    } else {
+      ctx = { lo: 0, hi: -1 };
+      rec(line, `${who}: QUICKSORT(A, ${lo}, ${hi}) is an empty range. Nothing to sort, so it returns.`);
+    }
+    stack.pop();
+  }
+
+  rec(-1, `Here's the unsorted array ${show(0, n - 1)}.`);
+  quicksort(0, n - 1, null);
+  ctx = { lo: -1, hi: -1 };
+  rec(-1, `Sorted: ${show(0, n - 1)}. That took ${cmp} comparisons and ${swp} swaps.`, { finished: true });
+  return out;
+}
+
+function load(vals) {
+  stopLearn();
+  values = vals;
+  steps = build(vals);
+  cur = 0;
+  answers = {};
+  $("arrInput").value = vals.join(", ");
+  $("scrub").max = steps.length - 1;
+  document.querySelectorAll(".bar").forEach(b => b.remove());
+  vals.forEach((v, k) => {
+    const el = document.createElement("div");
+    el.className = "bar";
+    el.id = "bar" + k;
+    el.innerHTML = `<span class="val"></span><span class="idx"></span><span class="tag"></span>`;
+    el.onclick = () => pickBar(k);
+    $("stage").insertBefore(el, $("range"));
+  });
+  const n = vals.length;
+  $("ref").textContent = `For n = ${n}: an average run needs roughly n log₂ n ≈ ${Math.round(n * Math.log2(n))} comparisons, while the worst case needs n(n − 1)/2 = ${n * (n - 1) / 2}.`;
+  render();
+}
+
+const geom = () => {
+  const stage = $("stage"), W = stage.clientWidth, H = stage.clientHeight, n = values.length;
+  const pad = 34, slot = (W - pad * 2) / n, gap = Math.min(10, slot * 0.18), w = slot - gap;
+  return { H, w, slot, x: k => pad + k * slot + gap / 2 };
+};
+
+function render() {
+  const s = steps[cur], { H, w, slot, x } = geom(), max = Math.max(...values);
+  const q = activeQuestion();
+  s.ids.forEach((id, k) => {
+    const el = $("bar" + id), v = s.arr[k];
+    const pick = q && q.type === "pivot" && k >= q.lo && k <= q.hi;
+    el.className = "bar " + s.roles[k] + (s.focus.includes(k) ? " focus" : "") + (pick ? " pickable" : "");
+    el.style.width = w + "px";
+    el.style.height = 34 + (v / max) * (H - 150) + "px";
+    el.style.transform = `translateX(${x(k)}px)`;
+    el.style.animationDelay = k * 70 + "ms";
+    el.querySelector(".val").textContent = v;
+    el.querySelector(".idx").textContent = k;
+    el.querySelector(".tag").textContent = s.roles[k] === "pivot" ? "pivot" : "";
+  });
+
+  const { lo, hi, i, j } = s.ctx;
+  const range = $("range"), visible = lo >= 0 && lo <= hi;
+  range.style.opacity = visible ? 1 : 0;
+  if (visible) {
+    range.style.left = x(lo) + "px";
+    range.style.width = (hi - lo) * slot + w + "px";
+  }
+  const place = (el, k, name) => {
+    el.style.opacity = k == null ? 0 : 1;
+    if (k == null) return;
+    const before = k < lo;
+    el.textContent = before ? `${name} = ${k}` : name;
+    el.style.left = (before ? Math.max(x(lo) - 4, 30) : x(k) + w / 2) + "px";
+  };
+  place($("ptrI"), s.ctx.part && s.ctx.placed == null ? i : null, "i");
+  place($("ptrJ"), j, "j");
+
+  $("code").innerHTML = LINES.map((l, k) => `<div class="${k === s.line ? "hit" : ""}">${l.replace(/</g, "&lt;") || " "}</div>`).join("");
+  $("stack").innerHTML = s.stack.length
+    ? s.stack.map(([a, b], k) => `<div class="frame ${k === s.stack.length - 1 ? "top" : ""}">QUICKSORT(A, ${a}, ${b})</div>`).join("")
+    : `<div class="empty">${s.finished ? "All calls have returned." : "No calls yet."}</div>`;
+  $("cmp").textContent = s.cmp;
+  $("swp").textContent = s.swp;
+  $("msg").textContent = s.msg;
+  $("scrub").value = cur;
+  $("count").textContent = `Step ${cur + 1} of ${steps.length}`;
+  $("stage").classList.toggle("finished", !!s.finished);
+  renderQuiz();
+}
+
+function quizOn() { return mode === "play" || $("predict").checked; }
+function activeQuestion() {
+  const s = steps[cur];
+  if (!quizOn() || cur in answers) return null;
+  if (s.askPivot) return { type: "pivot", ...s.askPivot };
+  if (s.ask) return { type: "side", ...s.ask };
+  return null;
+}
+const needsAnswer = () => !!activeQuestion();
+
+function renderQuiz() {
+  const s = steps[cur], box = $("quiz");
+  const graded = Object.values(answers);
+  $("score").textContent = $("predict").checked && graded.length ? `${graded.filter(Boolean).length} / ${graded.length} correct` : "";
+  if (quizOn() && cur in answers) {
+    const ok = answers[cur];
+    const why = s.askPivot
+      ? `${s.askPivot.ans - s.askPivot.lo} element${s.askPivot.ans - s.askPivot.lo === 1 ? " is" : "s are"} ≤ ${s.askPivot.pivot}, so the pivot lands at index ${s.askPivot.ans}.`
+      : `${s.ask.v} ${s.ask.left ? "≤" : ">"} ${s.ask.pivot}, so it ${s.ask.left ? "goes to the left zone" : "stays in the right zone"}.`;
+    box.innerHTML = `<p class="feedback ${ok ? "good" : "bad"}">${ok ? "Correct!" : "Not quite."} ${why}</p>`;
+    return;
+  }
+  const q = activeQuestion();
+  if (!q) { box.innerHTML = ""; return; }
+  if (q.type === "side") {
+    box.innerHTML = `<div class="quiz"><strong>Your call: where does ${q.v} go?</strong>
+      <button class="left" data-a="1">Left (≤ ${q.pivot})</button>
+      <button class="right" data-a="0">Right (&gt; ${q.pivot})</button></div>`;
+    box.querySelectorAll("button").forEach(b => b.onclick = () => answer((b.dataset.a === "1") === q.left, "side"));
+  } else {
+    const slots = [];
+    for (let k = q.lo; k <= q.hi; k++) slots.push(`<button class="slot" data-k="${k}">${k}</button>`);
+    box.innerHTML = `<div class="quiz"><strong>Bonus round: where will the pivot ${q.pivot} end up?</strong>
+      <p class="hint">Count how many elements in this range are ≤ ${q.pivot}. Tap an index or a bar.</p>${slots.join("")}</div>`;
+    box.querySelectorAll("button").forEach(b => b.onclick = () => answer(+b.dataset.k === q.ans, "pivot"));
+  }
+}
+
+function pickBar(id) {
+  const q = activeQuestion();
+  if (!q || q.type !== "pivot") return;
+  const k = steps[cur].ids.indexOf(id);
+  if (k >= q.lo && k <= q.hi) answer(k === q.ans, "pivot");
+}
+
+function answer(ok, type) {
+  if (cur in answers) return;
+  answers[cur] = ok;
+  ok ? sfx.good() : sfx.bad();
+  const focusK = type === "pivot" ? steps[cur].askPivot.ans : steps[cur].focus[0];
+  if (mode === "play") scoreAnswer(ok, type, focusK);
+  else popAt(focusK, ok ? "✓" : "✗", ok);
+  render();
+  if (mode === "play" && game.hearts > 0) schedule(1300);
+  if (mode === "learn" && timer === "waiting") playLearn();
+}
+
+function popAt(k, text, ok) {
+  const { x, w } = geom(), el = document.createElement("div");
+  el.className = "pop " + (ok ? "good" : "bad");
+  el.textContent = text;
+  el.style.left = x(k) + w / 2 - 20 + "px";
+  el.style.top = "40px";
+  $("stage").appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function next() {
+  if (needsAnswer()) { $("quiz").querySelector("button")?.focus(); return false; }
+  if (cur < steps.length - 1) { cur++; render(); return true; }
+  return false;
+}
+function prev() { stopLearn(); if (cur > 0) { cur--; render(); } }
+function playLearn() {
+  stopLearn();
+  if (cur >= steps.length - 1) { cur = 0; answers = {}; render(); }
+  $("playBtn").textContent = "❚❚ Pause";
+  timer = setInterval(() => {
+    if (needsAnswer()) { clearInterval(timer); timer = "waiting"; return; }
+    if (!next()) stopLearn();
+  }, SPEEDS[$("speed").value - 1]);
+}
+function stopLearn() {
+  if (timer && timer !== "waiting") clearInterval(timer);
+  timer = null;
+  $("playBtn").textContent = "▶ Play";
+}
+
+function schedule(delay) {
+  clearTimeout(gameTimer);
+  gameTimer = setTimeout(advance, delay ?? SPEEDS[$("gameSpeed").value - 1]);
+}
+function advance() {
+  if (mode !== "play" || needsAnswer()) return;
+  if (cur < steps.length - 1) {
+    cur++;
+    render();
+    if (steps[cur].finished) return setTimeout(levelClear, 900);
+    if (!needsAnswer()) schedule();
+  }
+}
+
+function scoreAnswer(ok, type, k) {
+  if (ok) {
+    game.streak++;
+    const mult = Math.min(4, 1 + Math.floor(game.streak / 3));
+    const pts = (type === "pivot" ? 30 : 10) * mult;
+    game.score += pts;
+    popAt(k, `+${pts}${mult > 1 ? ` ×${mult}` : ""}`, true);
+    award("first");
+    if (game.streak >= 5) award("streak5");
+    if (game.streak >= 10) award("streak10");
+    if (type === "pivot") { game.pivotHits++; award("pivot"); if (game.pivotHits >= 3) award("pivot3"); }
+  } else {
+    game.streak = 0;
+    game.hearts--;
+    game.flawless = false;
+    popAt(k, "−1 ❤️", false);
+    const p = $("mainPanel");
+    p.classList.remove("shake"); void p.offsetWidth; p.classList.add("shake");
+    if (game.hearts <= 0) setTimeout(gameOver, 900);
+  }
+  updateHud(ok ? "hudScore" : "hudHearts");
+}
+
+function updateHud(bumpId) {
+  $("hudLevel").textContent = `${game.level + 1} / ${LEVELS.length}`;
+  $("hudScore").textContent = game.score;
+  $("hudStreak").textContent = game.streak >= 3 ? `🔥 ${game.streak}` : game.streak;
+  $("hudStreakBox").classList.toggle("hot", game.streak >= 3);
+  $("hudHearts").textContent = "❤️".repeat(Math.max(0, game.hearts)) + "🤍".repeat(3 - Math.max(0, game.hearts));
+  if (game.score > game.best) { game.best = game.score; store.set("best", game.best); }
+  $("hudBest").textContent = game.best;
+  if (bumpId) { const el = $(bumpId); el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+}
+
+function renderBadges() {
+  $("badges").innerHTML = BADGES.map(b => `<div class="badge ${game.badges.has(b.id) ? "won" : ""}"><div class="icon">${b.icon}</div><div><b>${b.name}</b><span>${b.desc}</span></div></div>`).join("");
+}
+function award(id) {
+  if (game.badges.has(id)) return;
+  game.badges.add(id);
+  store.set("badges", [...game.badges]);
+  const b = BADGES.find(b => b.id === id);
+  toast(`${b.icon} Badge unlocked: ${b.name}`);
+  sfx.badge();
+  renderBadges();
+}
+function toast(text) {
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = text;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function makeLevel(L) {
+  if (L.boss) return Array.from({ length: L.n }, (_, k) => (k + 1) * 10);
+  const pool = Array.from({ length: 90 }, (_, k) => k + 5);
+  for (let k = pool.length - 1; k > 0; k--) { const r = Math.floor(Math.random() * (k + 1)); [pool[k], pool[r]] = [pool[r], pool[k]]; }
+  return pool.slice(0, L.n);
+}
+
+function showCard(html, buttons) {
+  $("card").innerHTML = html + `<div class="row">${buttons.map((b, k) => `<button class="${k === 0 ? "primary big" : "big"}" data-k="${k}">${b.label}</button>`).join("")}</div>`;
+  $("card").querySelectorAll("button").forEach(el => el.onclick = () => { $("overlay").hidden = true; buttons[el.dataset.k].go(); });
+  $("overlay").hidden = false;
+  $("card").querySelector("button").focus();
+}
+
+function levelIntro() {
+  const L = LEVELS[game.level];
+  showCard(`<p>Level ${game.level + 1} of ${LEVELS.length}</p><h3>${L.name}</h3><p>${L.blurb}</p>`, [{ label: "Start", go: startLevel }]);
+}
+function startLevel() {
+  game.hearts = 3;
+  game.flawless = true;
+  game.streak = 0;
+  game.levelStart = game.score;
+  load(makeLevel(LEVELS[game.level]));
+  updateHud();
+  schedule();
+}
+function levelClear() {
+  if (mode !== "play") return;
+  const L = LEVELS[game.level], bonus = game.hearts * 25;
+  game.score += bonus;
+  if (game.flawless) award("flawless");
+  if (L.boss) award("boss");
+  updateHud("hudScore");
+  sfx.win();
+  confetti();
+  const stars = [1, 2, 3].map(n => `<span class="${n <= game.hearts ? "" : "off"}">★</span>`).join("");
+  const last = game.level === LEVELS.length - 1;
+  const body = `<h3>${last ? "Quick Sort mastered!" : `Level ${game.level + 1} cleared!`}</h3><div class="stars">${stars}</div>
+    <p>+${bonus} bonus for hearts left. Score: <b>${game.score}</b></p>
+    ${L.boss ? `<p>That sorted array needed ${steps[cur].cmp} comparisons, the full n(n − 1)/2. A random pivot would have avoided it.</p>` : ""}`;
+  showCard(body, last
+    ? [{ label: "Play again", go: newGame }]
+    : [{ label: "Next level", go: () => { game.level++; updateHud(); levelIntro(); } }, { label: "Replay level", go: () => { game.score = game.levelStart; startLevel(); } }]);
+}
+function gameOver() {
+  clearTimeout(gameTimer);
+  sfx.lose();
+  showCard(`<h3>Out of hearts</h3><p>You reached ${game.score} points on level ${game.level + 1}. Each wrong call costs a heart, so slow down and check the pivot.</p>`,
+    [{ label: "Retry level", go: () => { game.score = game.levelStart; startLevel(); } }, { label: "Back to learn mode", go: () => setMode("learn") }]);
+}
+function newGame() {
+  Object.assign(game, { level: 0, score: 0, streak: 0, hearts: 3, pivotHits: 0 });
+  updateHud();
+  showCard(`<h3>How to play</h3><p>Quick Sort runs on its own and stops whenever it's your call.</p>
+    <ul><li><b>Left or right:</b> is the element ≤ the pivot? 10 points.</li>
+    <li><b>Bonus round:</b> guess where a pivot will land before the scan. 30 points.</li>
+    <li><b>Streaks:</b> every 3 correct in a row raises your multiplier, up to ×4.</li>
+    <li><b>Hearts:</b> 3 per level. A wrong call costs one.</li></ul>`, [{ label: "Start level 1", go: levelIntro }]);
+}
+
+function setMode(m) {
+  mode = m;
+  document.body.dataset.mode = m;
+  $("learnTab").setAttribute("aria-pressed", m === "learn");
+  $("playTab").setAttribute("aria-pressed", m === "play");
+  clearTimeout(gameTimer);
+  stopLearn();
+  $("overlay").hidden = true;
+  if (m === "play") { renderBadges(); newGame(); }
+  else load([7, 2, 9, 4, 3, 8, 5]);
+}
+
+const sfx = (() => {
+  let ctx;
+  const tone = (f, t, d, type = "sine", vol = 0.12) => {
+    if (!sound) return;
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain(), at = ctx.currentTime + t;
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(vol, at);
+    g.gain.exponentialRampToValueAtTime(0.001, at + d);
+    o.connect(g).connect(ctx.destination);
+    o.start(at); o.stop(at + d);
+  };
+  return {
+    good: () => { tone(660, 0, 0.12); tone(990, 0.08, 0.18); },
+    bad: () => { tone(180, 0, 0.3, "square", 0.06); },
+    badge: () => { tone(880, 0, 0.1); tone(1320, 0.1, 0.25); },
+    win: () => [523, 659, 784, 1047].forEach((f, k) => tone(f, k * 0.12, 0.3, "triangle")),
+    lose: () => [392, 330, 262].forEach((f, k) => tone(f, k * 0.18, 0.35, "triangle"))
+  };
+})();
+
+function confetti() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = $("confetti"), g = c.getContext("2d");
+  c.width = innerWidth; c.height = innerHeight;
+  const colors = ["#f4a261", "#8ecae6", "#e5989b", "#90be6d", "#e75480"];
+  const bits = Array.from({ length: 140 }, () => ({
+    x: Math.random() * c.width, y: -20 - Math.random() * c.height * 0.5,
+    vx: (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 4, r: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.3,
+    s: 6 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)]
+  }));
+  const end = performance.now() + 2600;
+  (function frame(t) {
+    g.clearRect(0, 0, c.width, c.height);
+    bits.forEach(b => {
+      b.x += b.vx; b.y += b.vy; b.vy += 0.05; b.r += b.vr;
+      g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.fillStyle = b.color; g.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2); g.restore();
+    });
+    if (t < end) requestAnimationFrame(frame); else g.clearRect(0, 0, c.width, c.height);
+  })(performance.now());
+}
+
+function parse(text) {
+  const nums = text.split(/[\s,]+/).filter(Boolean).map(Number);
+  if (nums.some(v => !Number.isInteger(v) || v < 1 || v > 99)) return "Use whole numbers from 1 to 99, separated by commas.";
+  if (nums.length < 2 || nums.length > 12) return "Enter between 2 and 12 numbers.";
+  return nums;
+}
+
+$("loadBtn").onclick = () => {
+  const r = parse($("arrInput").value);
+  $("err").textContent = typeof r === "string" ? r : "";
+  if (typeof r !== "string") load(r);
+};
+$("arrInput").onkeydown = e => { if (e.key === "Enter") $("loadBtn").click(); };
+$("randBtn").onclick = () => { $("err").textContent = ""; load(makeLevel({ n: 8 })); };
+$("worstBtn").onclick = () => { $("err").textContent = ""; load([10, 20, 30, 40, 50, 60, 70]); };
+$("nextBtn").onclick = () => { stopLearn(); next(); };
+$("prevBtn").onclick = prev;
+$("resetBtn").onclick = () => { stopLearn(); cur = 0; render(); };
+$("playBtn").onclick = () => (timer ? stopLearn() : playLearn());
+$("scrub").oninput = e => { stopLearn(); cur = +e.target.value; render(); };
+$("speed").oninput = () => { if (timer && timer !== "waiting") playLearn(); };
+$("predict").onchange = () => { answers = {}; render(); };
+$("learnTab").onclick = () => mode !== "learn" && setMode("learn");
+$("playTab").onclick = () => mode !== "play" && setMode("play");
+$("soundBtn").onclick = () => { sound = !sound; store.set("sound", sound); $("soundBtn").textContent = sound ? "🔊" : "🔇"; };
+$("soundBtn").textContent = sound ? "🔊" : "🔇";
+
+document.addEventListener("keydown", e => {
+  if (mode !== "learn" || !$("overlay").hidden) return;
+  if (e.target.tagName === "INPUT" && e.target.type === "text") return;
+  if (e.key === "ArrowRight") { e.preventDefault(); stopLearn(); next(); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+  if (e.key === " " && e.target.tagName !== "BUTTON") { e.preventDefault(); timer ? stopLearn() : playLearn(); }
+});
+new ResizeObserver(() => steps.length && render()).observe($("stage"));
+
+updateHud();
+load([7, 2, 9, 4, 3, 8, 5]);
+</script>
+</body>
+</html>
